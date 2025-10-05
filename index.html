@@ -138,6 +138,7 @@
             mask-composite: exclude;
             opacity: 0;
             transition: opacity 0.4s;
+            pointer-events: none; /* allow clicks through the decorative overlay */
         }
 
         .course-card:hover::before {
@@ -338,6 +339,85 @@
                 font-size: 1.8rem;
             }
         }
+
+        /* Contact modal styles */
+        .contact-button {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: linear-gradient(135deg, #00d4ff, #8a2be2);
+            color: #000;
+            border: none;
+            padding: 0.9rem 1rem;
+            border-radius: 50px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            cursor: pointer;
+            z-index: 200;
+            font-weight: bold;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            padding: 1rem;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: linear-gradient(180deg, #0f1724, #0b1220);
+            border-radius: 12px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.04);
+            color: #e6eef8;
+        }
+
+        .modal h3 {
+            margin-bottom: 0.5rem;
+            color: #00d4ff;
+        }
+
+        .modal .form-group {
+            margin-bottom: 0.8rem;
+        }
+
+        .modal input[type="text"],
+        .modal input[type="email"],
+        .modal textarea,
+        .modal select {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(255,255,255,0.02);
+            color: #e6eef8;
+            outline: none;
+        }
+
+        .modal textarea { min-height: 100px; resize: vertical; }
+
+        .modal .send-row {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            margin-top: 0.6rem;
+        }
+
+        .modal .small-note { color: #b8c7d6; font-size: 0.95rem; }
+
+        .modal .success-message { color: #00ffb3; font-weight: 600; margin-top: 0.6rem; }
+
+        .modal .disabled { opacity: 0.6; }
     </style>
 </head>
 <body>
@@ -428,7 +508,7 @@
                     </div>
                 </div>
 
-                <center><button class="cta-button">Enroll in Level 1</button></center>
+                <center><button type="button" class="cta-button" data-course="Embedded Systems Fundamentals">Enroll in Level 1</button></center>
             </div>
 
             <!-- Level 2 Course -->
@@ -522,7 +602,7 @@
                     </div>
                 </div>
 
-                <center><button class="cta-button">Enroll in Level 2</button></center>
+                <center><button type="button" class="cta-button" data-course="AUTOSAR & Advanced Protocols">Enroll in Level 2</button></center>
             </div>
         </div>
     </div>
@@ -594,7 +674,170 @@
     </div>
 
     <footer>
-        <p>&copy; 2025 InverseBits. All rights reserved. | <a href="https://inversebits.ai" style="color: #00d4ff; text-decoration: none;">inversebits.ai</a> | <a href="https://edu.inversebits.ai" style="color: #00d4ff; text-decoration: none;">edu.inversebits.ai</a></p>
+    <p>&copy; 2025 InverseBits. All rights reserved. | <a href="https://inversebits.ai" style="color: #00d4ff; text-decoration: none;">inversebits.ai</a> | <a href="https://edu.inversebits.ai" style="color: #00d4ff; text-decoration: none;">edu.inversebits.ai</a> | Contact: <a href="mailto:contact@inversebits.ai" style="color: #00d4ff; text-decoration: none;">contact@inversebits.ai</a></p>
     </footer>
+    
+    <!-- Floating contact button -->
+    <button class="contact-button" id="openContact">Contact Us</button>
+
+    <!-- Contact Modal -->
+    <div class="modal-overlay" id="contactModal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+            <h3 id="contactTitle">Get in touch</h3>
+            <p class="small-note">Fill the form and our team will reach out soon.</p>
+
+            <div class="form-group">
+                <label for="contactName">Name</label>
+                <input type="text" id="contactName" placeholder="Your name">
+            </div>
+
+            <div class="form-group">
+                <label for="contactEmail">Email</label>
+                <input type="email" id="contactEmail" placeholder="you@example.com">
+            </div>
+
+            <div class="form-group">
+                <label for="contactCourse">Course</label>
+                <input type="text" id="contactCourse" readonly class="disabled">
+            </div>
+
+            <div class="form-group">
+                <label for="contactComments">Comments</label>
+                <textarea id="contactComments" placeholder="Your questions or comments"></textarea>
+            </div>
+
+            <div class="send-row">
+                <button class="cta-button" id="sendContact">Send</button>
+                <button class="cta-button" id="closeContact" style="background: transparent; color: #e6eef8; border: 1px solid rgba(255,255,255,0.06);">Cancel</button>
+            </div>
+
+            <div id="contactStatus" class="small-note" aria-live="polite"></div>
+        </div>
+    </div>
+
+    <script>
+        (function(){
+            const openBtn = document.getElementById('openContact');
+            const modal = document.getElementById('contactModal');
+            const closeBtn = document.getElementById('closeContact');
+            const sendBtn = document.getElementById('sendContact');
+            const courseInput = document.getElementById('contactCourse');
+            const nameInput = document.getElementById('contactName');
+            const emailInput = document.getElementById('contactEmail');
+            const commentsInput = document.getElementById('contactComments');
+            const statusDiv = document.getElementById('contactStatus');
+
+            function openModal(prefillCourse){
+                if(prefillCourse){
+                    courseInput.value = prefillCourse;
+                    courseInput.readOnly = true;
+                    courseInput.classList.add('disabled');
+                } else {
+                    courseInput.value = '';
+                    courseInput.readOnly = false;
+                    courseInput.classList.remove('disabled');
+                }
+                modal.classList.add('show');
+                // focus first field
+                setTimeout(()=> nameInput.focus(), 120);
+            }
+
+            function closeModal(){
+                modal.classList.remove('show');
+                // reset small status after a moment
+                setTimeout(()=> statusDiv.textContent = '', 700);
+            }
+
+            openBtn.addEventListener('click', ()=> openModal());
+            closeBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
+
+            // Delegated handler: if an enroll button inside a course-card is clicked, open modal
+            document.addEventListener('click', function(e){
+                const btn = e.target.closest('.cta-button');
+                if(!btn) return;
+                // ensure the button is within a course-card (so other CTA buttons aren't mistaken)
+                const card = btn.closest('.course-card');
+                if(!card) return;
+                e.preventDefault();
+                // try data-course first, fallback to h3 text
+                const explicit = btn.getAttribute('data-course');
+                if(explicit){ openModal(explicit); return; }
+                const title = card ? (card.querySelector('h3')?.innerText || '') : '';
+                openModal(title);
+            });
+
+            // Send behavior: validate, POST to Formspree, show message, then close
+            const FORMSPREE_URL = "https://formspree.io/f/xrbleyeg"; // <- replace yourFormId with your real Formspree form ID
+
+            sendBtn.addEventListener('click', function(){
+                const name = nameInput.value.trim();
+                const email = emailInput.value.trim();
+                const course = courseInput.value.trim();
+                const comments = commentsInput.value.trim();
+
+                if(!name){ statusDiv.textContent = 'Please enter your name.'; nameInput.focus(); return; }
+                if(!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ statusDiv.textContent = 'Please enter a valid email.'; emailInput.focus(); return; }
+
+                // Disable while sending
+                sendBtn.disabled = true; sendBtn.textContent = 'Sending...';
+
+                // Build form data
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('email', email);
+                formData.append('course', course);
+                formData.append('message', comments);
+                // common Formspree field to reply to
+                formData.append('_replyto', email);
+
+                // If user didn't set a real Formspree ID, fallback to simulated behavior but warn in console
+                const usingPlaceholder = FORMSPREE_URL.includes('yourFormId');
+
+                if(usingPlaceholder){
+                    console.warn('Formspree URL uses placeholder. Replace FORMSPREE_URL with your actual form ID to enable submission.');
+                }
+
+                // Perform POST to Formspree
+                fetch(FORMSPREE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                })
+                .then(response => {
+                    if(response.ok){
+                        return response.json().catch(()=> ({}));
+                    }
+                    // non-2xx
+                    throw new Error('Network response was not ok');
+                })
+                .then(()=>{
+                    statusDiv.innerHTML = '<span class="success-message">Thank you — our team will reach out soon.</span>';
+                    // reset fields except course
+                    nameInput.value = '';
+                    emailInput.value = '';
+                    commentsInput.value = '';
+
+                    // Close modal after short delay so user sees message
+                    setTimeout(closeModal, 1400);
+                })
+                .catch(err=>{
+                    console.error('Form submission error:', err);
+                    if(usingPlaceholder){
+                        // If placeholder, still show success so dev flow continues, but instruct to set real ID
+                        statusDiv.innerHTML = '<span class="success-message">(Demo) Thank you — our team will reach out soon. Replace Formspree ID to enable real submissions.</span>';
+                        setTimeout(closeModal, 1600);
+                    } else {
+                        statusDiv.textContent = 'Failed to send — please try again later.';
+                    }
+                })
+                .finally(()=>{
+                    sendBtn.disabled = false; sendBtn.textContent = 'Send';
+                });
+            });
+        })();
+    </script>
 </body>
 </html>
